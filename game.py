@@ -28,6 +28,7 @@ except pygame.error as e:
 black = (0, 0, 0)
 light_blue = (173, 216, 230)  # Xanh dương nhạt
 light_red = (255, 99, 71)  # Màu đỏ tươi cho nút
+dark_red = (255, 69, 0)  # Màu đỏ đậm cho nút Thoát
 
 # Khởi tạo font chữ
 font_path = 'fonts/Lato-Regular.ttf'
@@ -116,6 +117,9 @@ def main_menu():
                     level3.run_level3()  # Chạy level 3
                 elif event.pos[0] >= screen_width - 160 and event.pos[1] <= 60:  # Kiểm tra nút Hướng dẫn
                     instructions_page()  # Chuyển sang trang Hướng dẫn
+                elif event.pos[0] <= 160 and event.pos[1] <= 60:  # Kiểm tra nút Thoát
+                    pygame.quit()
+                    sys.exit()
 
         # Vẽ background lên màn hình
         screen.blit(background, (0, 0))
@@ -135,6 +139,9 @@ def main_menu():
 
         # Tạo nút Hướng dẫn ở góc phải màn hình
         create_button("Help", screen_width - 160, 10, 150, 50, light_blue)
+
+        # Tạo nút Thoát ở góc trái màn hình
+        create_button("Exit", 10, 10, 150, 50, dark_red)
 
         # Cập nhật màn hình
         pygame.display.update()
