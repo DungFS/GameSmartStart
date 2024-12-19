@@ -1,25 +1,28 @@
 import cv2
 import mediapipe as mp
+import queue
 
 class HandGestureRecognition:
     def __init__(self):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands()
         self.mp_draw = mp.solutions.drawing_utils
-        self.camera_open = False
-        self.detected_fingers = None  # Biến để lưu số ngón tay nhận diện được
+        self.result_queue = queue.Queue()
+        self.cap = cv2.VideoCapture(0)
+        self.run = True
 
-    def count_fingers(self, landmarks):
+    def detect_fingers(self, landmarks):
+        """Detect the number of fingers raised."""
         fingers = []
         tips_ids = [4, 8, 12, 16, 20]
 
-        # Ngón cái (kiểm tra hướng x)
+        # Thumb (check x direction)
         if landmarks[tips_ids[0]].x < landmarks[tips_ids[0] - 1].x:
             fingers.append(1)
         else:
             fingers.append(0)
 
-        # Các ngón còn lại (kiểm tra hướng y)
+        # Other fingers (check y direction)
         for i in range(1, 5):
             if landmarks[tips_ids[i]].y < landmarks[tips_ids[i] - 2].y:
                 fingers.append(1)
@@ -28,26 +31,16 @@ class HandGestureRecognition:
 
         return fingers.count(1)
 
+    def stop_camera(self):
+        """Stop the camera and release resources."""
+        self.cap.release()
+        cv2.destroyAllWindows()
+
     def start_camera(self):
-        self.camera_open = True
-        cap = cv2.VideoCapture(0)
-
-        # Tọa độ và kích thước của nút "OK"
-        button_x, button_y, button_w, button_h = 450, 10, 100, 50
-
-        # Hàm xử lý sự kiện nhấp chuột
-        def click_event(event, x, y, flags, params):
-            if event == cv2.EVENT_LBUTTONDOWN:
-                # Kiểm tra nếu nhấp chuột vào vùng nút "OK"
-                if button_x <= x <= button_x + button_w and button_y <= y <= button_y + button_h:
-                    self.stop_camera()
-
-        # Gắn hàm sự kiện nhấp chuột vào cửa sổ
-        cv2.namedWindow("Hand Gesture Recognition")
-        cv2.setMouseCallback("Hand Gesture Recognition", click_event)
-
-        while self.camera_open:
-            ret, frame = cap.read()
+        camera_open = True
+        self.cap = cv2.VideoCapture(0)
+        while camera_open:
+            ret, frame = self.cap.read()
             if not ret:
                 break
 
@@ -57,25 +50,18 @@ class HandGestureRecognition:
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
                     self.mp_draw.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
-                    self.detected_fingers = self.count_fingers(hand_landmarks.landmark)
-                    cv2.putText(frame, f'{self.detected_fingers}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    detected_fingers = self.detect_fingers(hand_landmarks.landmark)
+                    cv2.putText(frame, f'{detected_fingers}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            # Vẽ nút "OK" lên khung hình
-            cv2.rectangle(frame, (button_x, button_y), (button_x + button_w, button_y + button_h), (0, 255, 0), -1)
-            cv2.putText(frame, "OK", (button_x + 20, button_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    # Store the result in the queue
+                    self.result_queue.put(detected_fingers)
 
             cv2.imshow("Hand Gesture Recognition", frame)
 
-            # Kiểm tra nhấn phím 'q' để thoát
+            # Check for key press 'q' to exit
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                self.stop_camera()
-
-        cap.release()
-        cv2.destroyAllWindows()
-
-
-
-    def stop_camera(self):
-        self.camera_open = False
+                camera_open = False
+        self.stop_camera()
+hand_recognition = HandGestureRecognition()
 
 

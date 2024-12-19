@@ -1,82 +1,93 @@
 import pygame
 import sys
 import random
+from camera import hand_recognition
 
+class Level1:
+    def __init__(self):
+        # Khởi tạo Pygame
+        pygame.init()
+        self.screen = pygame.display.set_mode((800, 600))
+        pygame.display.set_caption("Level 1")
+        self.font = pygame.font.SysFont(None, 40)
 
-from camera import HandGestureRecognition
+        # Tải hình ảnh background
+        self.background = pygame.image.load('img/backgroud/01.jpg')
 
-hand_gesture = HandGestureRecognition()
+        # Tải các hình ảnh (6 bức ảnh có kết quả từ 0-5)
+        self.images = [
+            pygame.image.load(f'img/level1/{i}-removebg-preview.png') for i in range(6)
+        ]
+        self.current_image = random.choice(self.images)
+        self.image_index = self.images.index(self.current_image)
+        self.image_rect = self.current_image.get_rect(center=(400, 300))
 
-# Khởi tạo Pygame cho Level 1
-def run_level1():
+        # Biến trạng thái
+        self.correct_answer_time = None  # Thời gian trả lời đúng
+        self.result_message = ""  # Thông báo đúng/sai
+        self.waiting_for_new_image = False  # Trạng thái chờ đổi hình ảnh
 
-    pygame.init()
-    screen = pygame.display.set_mode((800, 600))
-    pygame.display.set_caption("Level 1")
-    font = pygame.font.SysFont(None, 40)
+    def create_button(self, text, x, y, width, height, color):
+        """Tạo nút bấm trên màn hình."""
+        rect = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, color, rect, border_radius=15)
+        label = self.font.render(text, True, (0, 0, 0))
+        self.screen.blit(
+            label, (x + (width - label.get_width()) // 2, y + (height - label.get_height()) // 2)
+        )
+        return rect
 
-    # Tải hình ảnh background
-    background = pygame.image.load('img/backgroud/01.jpg')
+    def check_camera_input(self):
+        """Kiểm tra đầu vào từ camera."""
+        if not hand_recognition.result_queue.empty() and not self.waiting_for_new_image:
+            detected_result = hand_recognition.result_queue.get()
+            if detected_result == self.image_index:  # Nếu trả lời đúng
+                self.correct_answer_time = pygame.time.get_ticks()
+                self.result_message = "\u0110\u00fang!"
+                self.waiting_for_new_image = True
+            else:
+                self.result_message = "Sai!"
 
-    # Tải các hình ảnh (6 bức ảnh có kết quả từ 0-5)
-    img0 = pygame.image.load('img/level1/0-removebg-preview.png')
-    img1 = pygame.image.load('img/level1/1-removebg-preview.png')
-    img2 = pygame.image.load('img/level1/2-removebg-preview.png')
-    img3 = pygame.image.load('img/level1/3-removebg-preview.png')
-    img4 = pygame.image.load('img/level1/4-removebg-preview.png')
-    img5 = pygame.image.load('img/level1/5-removebg-preview.png')
+    def update_image(self):
+        """Cập nhật hình ảnh sau khi trả lời đúng."""
+        if self.waiting_for_new_image and self.correct_answer_time is not None:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.correct_answer_time >= 2500:  # 2500 ms = 2.5 giây
+                self.current_image = random.choice(self.images)
+                self.image_index = self.images.index(self.current_image)
+                self.correct_answer_time = None
+                self.result_message = ""
+                self.waiting_for_new_image = False
 
-    images = [img0, img1, img2, img3, img4, img5]
-    current_image = random.choice(images)
-    image_index = images.index(current_image)  # Lưu chỉ số của hình ảnh hiện tại
-    image_rect = current_image.get_rect(center=(400, 300))
+    def run(self):
+        """Chạy Level 1."""
+        while True:
+            self.screen.blit(self.background, (0, 0))
+            self.screen.blit(self.current_image, self.image_rect)
 
-    result = None  # Biến lưu kết quả kiểm tra
+            self.check_camera_input()
+            self.update_image()
 
-    while True:
-        screen.blit(background, (0, 0))
-        screen.blit(current_image, image_rect)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.back_button.collidepoint(event.pos):
+                        hand_recognition.stop_camera()
+                        return  # Quay lại menu chính
 
-            # Nhấn nút chuột để bật/tắt camera
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if camera_button.collidepoint(event.pos):
-                   hand_gesture.start_camera()
+            # Hiển thị nút "Menu"
+            self.back_button = self.create_button("Menu", 20, 20, 200, 50, (173, 216, 230))
 
+            # Hiển thị thông báo đúng/sai
+            result_label = self.font.render(
+                self.result_message, True, (0, 255, 0) if self.result_message == "\u0110\u00fang!" else (255, 0, 0)
+            )
+            self.screen.blit(result_label, (400 - result_label.get_width() // 2, 500))
 
-                elif check_button.collidepoint(event.pos):
-                    if hand_gesture.detected_fingers == image_index:
-                        result = "Correct"
-                    else:
-                        result = f"Wrong! Detected: {hand_gesture.detected_fingers}, Expected: {image_index}"
-                elif back_button.collidepoint(event.pos):
-                    return  # Thoát khỏi level, quay lại menu chính
+            pygame.display.update()
 
-                elif next_button.collidepoint((event.pos)):
-                    current_image = random.choice(images)
-                    image_index = images.index(current_image)
-                    result = ""
+level1 = Level1()
 
-        # Hiển thị nút "Bật/Tắt Camera" và "Kiểm tra kết quả"
-        camera_button = create_button(screen, "Open Camera", 150, 500, 200, 50, (173, 216, 230), font)
-        check_button = create_button(screen, "Check", 450, 500, 200, 50, (173, 216, 230), font)
-        back_button = create_button(screen, "Menu", 20, 20, 200, 50, (173, 216, 230), font)
-        next_button = create_button(screen, "Next", 580, 20, 200, 50, (173, 216, 230), font)
-        # Hiển thị kết quả nếu có
-        if result:
-            result_label = font.render(f"{result}", True, (0, 0, 0))
-            screen.blit(result_label, (400 - result_label.get_width() // 2, 100))
-
-        pygame.display.update()
-
-
-def create_button(screen, text, x, y, width, height, color, font):
-    rect = pygame.Rect(x, y, width, height)
-    pygame.draw.rect(screen, color, rect, border_radius=15)
-    label = font.render(text, True, (0, 0, 0))
-    screen.blit(label, (x + (width - label.get_width()) // 2, y + (height - label.get_height()) // 2))
-    return rect
